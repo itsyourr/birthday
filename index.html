@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Mosaic Reveal</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', monospace;
+        }
+        canvas {
+            display: block;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        #loading-text {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #db2777;
+            font-weight: bold;
+            letter-spacing: 0.5em;
+            text-transform: uppercase;
+            font-size: 14px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-text">Initializing Mosaic...</div>
+    <canvas id="mainCanvas"></canvas>
+
+    <script>
+        // CONFIGURATION
+        const IMAGE_PATH = 'https://raw.githubusercontent.com/nfvortexnfvortex-eng/hr/refs/heads/main/157b94c1-d654-476b-b71d-f431efed7de5.png'; // Needs to be in the same folder
+        const TEXT_PHRASE = " HAPPY BIRTHDAY"; 
+        const STEP_SIZE = 4; // Size of each "text pixel"
+
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const loadingText = document.getElementById('loading-text');
+
+        let img = new Image();
+        let imgData = null;
+        let isLoaded = false;
+        
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isDragging = false;
+        let startX, startY;
+
+        function init() {
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Direct Load Logic
+            img.crossOrigin = "Anonymous"; // Attempt to bypass some local restrictions
+            img.onload = () => {
+                processImage();
+                loadingText.style.display = 'none';
+            };
+            img.onerror = () => {
+                loadingText.innerHTML = "ERROR: 'image.jpg' NOT FOUND<br><small style='letter-spacing:normal'>Make sure the image is in the same folder and named correctly.</small>";
+                loadingText.style.color = "red";
+            };
+            img.src = IMAGE_PATH;
+
+            canvas.addEventListener('wheel', handleWheel, { passive: false });
+            canvas.addEventListener('mousedown', startPan);
+            window.addEventListener('mousemove', doPan);
+            window.addEventListener('mouseup', endPan);
+        }
+
+        function processImage() {
+            const tempCanvas = document.createElement('canvas');
+            const maxDim = 2400; 
+            let w = img.width;
+            let h = img.height;
+            if (w > maxDim || h > maxDim) {
+                const r = Math.min(maxDim / w, maxDim / h);
+                w *= r; h *= r;
+            }
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(img, 0, 0, w, h);
+            
+            try {
+                imgData = tempCtx.getImageData(0, 0, w, h);
+                isLoaded = true;
+                scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.95;
+                centerImage();
+                animate();
+            } catch (e) {
+                loadingText.innerHTML = "BROWSER SECURITY ERROR<br><small style='letter-spacing:normal'>Browsers block local image reading. Please run this through a local server (like Live Server or Python http.server).</small>";
+                loadingText.style.color = "orange";
+            }
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (isLoaded) centerImage();
+        }
+
+        function centerImage() {
+            offsetX = (canvas.width - img.width * scale) / 2;
+            offsetY = (canvas.height - img.height * scale) / 2;
+        }
+
+        function handleWheel(e) {
+            if (!isLoaded) return;
+            e.preventDefault();
+            const factor = Math.pow(1.15, -e.deltaY / 100);
+            const nextScale = scale * factor;
+            
+            if (nextScale > 0.01 && nextScale < 5000) {
+                offsetX = e.clientX - (e.clientX - offsetX) * factor;
+                offsetY = e.clientY - (e.clientY - offsetY) * factor;
+                scale = nextScale;
+            }
+        }
+
+        function startPan(e) { if (isLoaded) { isDragging = true; startX = e.clientX - offsetX; startY = e.clientY - offsetY; } }
+        function doPan(e) { if (isDragging) { offsetX = e.clientX - startX; offsetY = e.clientY - startY; } }
+        function endPan() { isDragging = false; }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (!isLoaded) return;
+
+            const fontSize = STEP_SIZE * scale;
+            ctx.font = `900 ${Math.ceil(fontSize)}px "Courier New", monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const vL = Math.max(0, Math.floor(-offsetX / scale / STEP_SIZE) * STEP_SIZE);
+            const vT = Math.max(0, Math.floor(-offsetY / scale / STEP_SIZE) * STEP_SIZE);
+            const vR = Math.min(img.width, Math.ceil((canvas.width - offsetX) / scale / STEP_SIZE) * STEP_SIZE);
+            const vB = Math.min(img.height, Math.ceil((canvas.height - offsetY) / scale / STEP_SIZE) * STEP_SIZE);
+
+            const dataW = imgData.width;
+            const ratio = dataW / img.width;
+
+            for (let y = vT; y < vB; y += STEP_SIZE) {
+                for (let x = vL; x < vR; x += STEP_SIZE) {
+                    const px = Math.floor(x * ratio);
+                    const py = Math.floor(y * ratio);
+                    const idx = (py * dataW + px) * 4;
+                    
+                    const r = imgData.data[idx];
+                    const g = imgData.data[idx+1];
+                    const b = imgData.data[idx+2];
+
+                    if (r + g + b < 5) continue; 
+
+                    ctx.fillStyle = `rgb(${r},${g},${b})`;
+                    const charIdx = (Math.floor(x/STEP_SIZE) + Math.floor(y/STEP_SIZE)) % TEXT_PHRASE.length;
+                    
+                    ctx.fillText(
+                        TEXT_PHRASE[charIdx], 
+                        (x + STEP_SIZE/2) * scale + offsetX, 
+                        (y + STEP_SIZE/2) * scale + offsetY
+                    );
+                }
+            }
+        }
+
+        function animate() { 
+            draw(); 
+            requestAnimationFrame(animate); 
+        }
+
+        init();
+    </script>
+</body>
+</html>
