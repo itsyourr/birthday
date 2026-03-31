@@ -201,6 +201,7 @@
     <!-- Poll 2 -->
     <div id="yours-modal" class="modal">
         <div class="modal-content">
+            <h2 class="modal-title">Absolutely Right</h2>
             <h2 class="modal-title">Do you wanna see yours?</h2>
             <div class="btn-row">
                 <button class="btn-base ok-btn" onclick="revealYours()">Yes</button>
@@ -209,7 +210,7 @@
         </div>
     </div>
 
-    <div id="zoom-instruction">Zoom In</div>
+    <div id="zoom-instruction">Zoom Out to See More</div>
     <canvas id="mainCanvas"></canvas>
     <button id="action-button">Do you know him?</button>
 
@@ -273,7 +274,7 @@
             img = new Image();
             img.crossOrigin = "Anonymous";
             img.onload = () => {
-                processImg();
+                processImg(true); // pass true to indicate initial load zoom
                 loadingOverlay.style.opacity = '0';
                 setTimeout(() => loadingOverlay.style.display = 'none', 800);
                 canvas.style.opacity = '1';
@@ -325,8 +326,8 @@
             const factor = Math.pow(1.1, -e.deltaY / 100);
             const nextScale = scale * factor;
             if (nextScale > 0.01 && nextScale < 5000) {
-                offsetX = e.clientX - (e.clientX - offsetX) * factor;
-                offsetY = e.clientY - (e.clientY - offsetY) * factor;
+                offsetX = e.clientX - (e.clientX - offsetX) * (nextScale / scale);
+                offsetY = e.clientY - (e.clientY - offsetY) * (nextScale / scale);
                 scale = nextScale;
             }
         }
@@ -348,9 +349,9 @@
         function closeModal(m) { m.style.opacity = '0'; setTimeout(() => m.style.display = 'none', 300); }
         function selectOption(el) { document.querySelectorAll('.poll-option').forEach(o => o.classList.remove('selected')); el.classList.add('selected'); selectedValue = el.innerText; }
         function submitFirstPoll() { if (!selectedValue) return; closeModal(pollModal); setTimeout(() => openModal(yoursModal), 500); }
-        function revealYours() { closeModal(yoursModal); actionBtn.style.display = 'none'; zoomInstr.innerText = "Zoom In"; loadImage(IMAGE_2); }
+        function revealYours() { closeModal(yoursModal); actionBtn.style.display = 'none'; zoomInstr.innerText = "Zoom Out"; loadImage(IMAGE_2); }
 
-        function processImg() {
+        function processImg(isInitialLoad = false) {
             const temp = document.createElement('canvas');
             const max = window.innerWidth < 600 ? 1200 : 1800; // Perf tuning for mobile
             let w = img.width, h = img.height;
@@ -360,9 +361,20 @@
             tCtx.drawImage(img, 0, 0, w, h);
             imgData = tCtx.getImageData(0, 0, w, h);
             isLoaded = true;
-            scale = Math.min(canvas.width / w, canvas.height / h) * 0.85;
-            offsetX = (canvas.width - w * scale) / 2;
-            offsetY = (canvas.height - h * scale) / 2;
+
+            // Start Zoomed In logic
+            const fitScale = Math.min(canvas.width / w, canvas.height / h) * 0.85;
+            
+            if (isInitialLoad) {
+                scale = fitScale * 15; // Start 15x zoomed in
+            } else {
+                scale = fitScale;
+            }
+
+            // Centering logic for the zoomed in view
+            offsetX = (canvas.width / 2) - (w / 2 * scale);
+            offsetY = (canvas.height / 2) - (h / 2 * scale);
+            
             if (!window.animating) { window.animating = true; animate(); }
         }
 
@@ -370,10 +382,13 @@
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             if (isLoaded) {
+                // Adjust position on resize without snapping scale back unless very zoomed out
                 const w = imgData.width, h = imgData.height;
-                scale = Math.min(canvas.width / w, canvas.height / h) * 0.8;
-                offsetX = (canvas.width - w * scale) / 2;
-                offsetY = (canvas.height - h * scale) / 2;
+                if (scale < Math.min(canvas.width / w, canvas.height / h)) {
+                    scale = Math.min(canvas.width / w, canvas.height / h) * 0.8;
+                    offsetX = (canvas.width - w * scale) / 2;
+                    offsetY = (canvas.height - h * scale) / 2;
+                }
             }
         }
 
