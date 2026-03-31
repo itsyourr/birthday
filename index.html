@@ -184,7 +184,7 @@
 
     <!-- Loading Screen -->
     <div id="loading-overlay">
-        <div id="loading-text">Initializing Mosaic...</div>
+        <div id="loading-text">Initializing...</div>
         <div class="spinner"></div>
     </div>
 
@@ -209,7 +209,7 @@
         </div>
     </div>
 
-    <div id="zoom-instruction">Pinch to Zoom In</div>
+    <div id="zoom-instruction">Zoom In</div>
     <canvas id="mainCanvas"></canvas>
     <button id="action-button">Do you know him?</button>
 
@@ -348,7 +348,7 @@
         function closeModal(m) { m.style.opacity = '0'; setTimeout(() => m.style.display = 'none', 300); }
         function selectOption(el) { document.querySelectorAll('.poll-option').forEach(o => o.classList.remove('selected')); el.classList.add('selected'); selectedValue = el.innerText; }
         function submitFirstPoll() { if (!selectedValue) return; closeModal(pollModal); setTimeout(() => openModal(yoursModal), 500); }
-        function revealYours() { closeModal(yoursModal); actionBtn.style.display = 'none'; zoomInstr.innerText = "Zoom In Her Portrait"; loadImage(IMAGE_2); }
+        function revealYours() { closeModal(yoursModal); actionBtn.style.display = 'none'; zoomInstr.innerText = "Zoom In"; loadImage(IMAGE_2); }
 
         function processImg() {
             const temp = document.createElement('canvas');
